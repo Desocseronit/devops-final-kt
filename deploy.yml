@@ -1,0 +1,52 @@
+---
+- name: Deploy DevOps Final stack on localhost
+  hosts: localhost
+  connection: local
+  become: yes
+
+  tasks:
+    - name: Check if Docker is installed
+      command: docker --version
+      register: docker_check
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Install Docker (if not present)
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+        state: present
+        update_cache: yes
+      when: docker_check.rc != 0
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create /opt/devops-final directory
+      file:
+        path: /opt/devops-final
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yml
+      copy:
+        src: docker-compose.yml
+        dest: /opt/devops-final/docker-compose.yml
+        mode: '0644'
+
+    - name: Copy prometheus.yml
+      copy:
+        src: prometheus.yml
+        dest: /opt/devops-final/prometheus.yml
+        mode: '0644'
+
+    - name: Start Docker Compose stack
+      command:
+        cmd: docker compose up -d
+        chdir: /opt/devops-final
+      register: compose_result
+      changed_when: "'Started' in compose_result.stderr or 'Created' in compose_result.stderr or 'Recreated' in compose_result.stderr"
